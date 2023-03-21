@@ -150,6 +150,9 @@ struct _GtkComboBoxPrivate
   GtkWidget *popup_window;
   GtkWidget *scrolled_window;
 
+  GtkPolicyType hpolicy;
+  GtkPolicyType vpolicy;
+
   GtkCssGadget *gadget;
 
   guint popup_idle_id;
@@ -1191,6 +1194,20 @@ gtk_combo_box_class_init (GtkComboBoxClass *klass)
                                                                  FALSE,
                                                                  GTK_PARAM_READABLE));
 
+  gtk_widget_class_install_style_property (widget_class,
+                                           g_param_spec_boolean ("vscrolled",
+                                                                 P_("Set vscrolled when appears as list"),
+                                                                 P_("Set vscrolled when appears as list"),
+                                                                 FALSE,
+                                                                 GTK_PARAM_READABLE));
+
+  gtk_widget_class_install_style_property (widget_class,
+                                           g_param_spec_boolean ("hscrolled",
+                                                                 P_("Set hscrolled when appears as list"),
+                                                                 P_("Set hscrolled when appears as list"),
+                                                                 FALSE,
+                                                                 GTK_PARAM_READABLE));
+
   /**
    * GtkComboBox:arrow-size:
    *
@@ -1569,7 +1586,26 @@ gtk_combo_box_check_appearance (GtkComboBox *combo_box)
     gtk_widget_style_get (GTK_WIDGET (combo_box),
                           "appears-as-list", &appears_as_list,
                           NULL);
-  
+
+  gboolean vscrolled = FALSE;
+  gtk_widget_style_get(GTK_WIDGET(combo_box),
+                       "vscrolled", &vscrolled, NULL);
+  if (vscrolled) {
+    priv->vpolicy = GTK_POLICY_AUTOMATIC;
+  } else {
+    priv->vpolicy = GTK_POLICY_NEVER;
+  }
+
+  gboolean hscrolled = FALSE;
+  gtk_widget_style_get(GTK_WIDGET(combo_box),
+                       "hscrolled", &hscrolled, NULL);
+  if (hscrolled) {
+    priv->hpolicy = GTK_POLICY_AUTOMATIC;
+  } else {
+    priv->hpolicy = GTK_POLICY_NEVER;
+  }
+
+
   if (appears_as_list)
     {
       /* Destroy all the menu mode widgets, if they exist. */
@@ -1680,7 +1716,7 @@ gtk_combo_box_add (GtkContainer *container,
       _gtk_bin_set_child (GTK_BIN (container), NULL);
       priv->cell_view = NULL;
     }
-  
+
   gtk_box_pack_start (GTK_BOX (priv->box), widget, TRUE, TRUE, 0);
   _gtk_bin_set_child (GTK_BIN (container), widget);
 
@@ -1728,7 +1764,7 @@ gtk_combo_box_remove (GtkContainer *container,
     appears_as_list = FALSE;
   else
     appears_as_list = TRUE;
-  
+
   if (appears_as_list)
     gtk_combo_box_list_destroy (combo_box);
   else if (GTK_IS_MENU (priv->popup_widget))
@@ -1886,8 +1922,9 @@ gtk_combo_box_set_popup_widget (GtkComboBox *combo_box,
           priv->scrolled_window = gtk_scrolled_window_new (NULL, NULL);
 
           gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_window),
-                                          GTK_POLICY_NEVER,
-                                          GTK_POLICY_NEVER);
+                                          priv->hpolicy,
+                                          priv->vpolicy);
+
           gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (priv->scrolled_window),
                                                GTK_SHADOW_IN);
 
@@ -1935,9 +1972,8 @@ gtk_combo_box_list_position (GtkComboBox *combo_box,
   window = gtk_widget_get_window (GTK_WIDGET (combo_box));
   gdk_window_get_root_coords (window, *x, *y, x, y);
 
-  hpolicy = vpolicy = GTK_POLICY_NEVER;
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_window),
-                                  hpolicy, vpolicy);
+                                  priv->hpolicy, priv->vpolicy);
 
   if (priv->popup_fixed_width)
     {
@@ -1945,9 +1981,8 @@ gtk_combo_box_list_position (GtkComboBox *combo_box,
 
       if (popup_req.width > *width)
         {
-          hpolicy = GTK_POLICY_ALWAYS;
           gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_window),
-                                          hpolicy, vpolicy);
+                                          priv->hpolicy, priv->vpolicy);
         }
     }
   else
@@ -1991,10 +2026,8 @@ gtk_combo_box_list_position (GtkComboBox *combo_box,
 
   if (popup_req.height > *height)
     {
-      vpolicy = GTK_POLICY_ALWAYS;
-
       gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_window),
-                                      hpolicy, vpolicy);
+                                      priv->hpolicy, priv->vpolicy);
     }
 }
 
@@ -2892,7 +2925,7 @@ gtk_combo_box_model_row_deleted (GtkTreeModel     *model,
         gtk_cell_view_set_displayed_row (GTK_CELL_VIEW (priv->cell_view), NULL);
       g_signal_emit (combo_box, combo_box_signals[CHANGED], 0);
     }
-  
+
   if (priv->tree_view)
     gtk_combo_box_list_popup_resize (combo_box);
 
@@ -2992,6 +3025,7 @@ gtk_combo_box_list_setup (GtkComboBox *combo_box)
                     G_CALLBACK (gtk_combo_box_list_button_pressed), combo_box);
 
   priv->tree_view = gtk_tree_view_new ();
+  gtk_widget_set_name(GTK_WIDGET(priv->tree_view), "combotree");
   sel = gtk_tree_view_get_selection (GTK_TREE_VIEW (priv->tree_view));
   gtk_tree_selection_set_mode (sel, GTK_SELECTION_BROWSE);
   gtk_tree_selection_set_select_function (sel,
@@ -4912,7 +4946,7 @@ gboolean
 gtk_combo_box_get_focus_on_click (GtkComboBox *combo_box)
 {
   g_return_val_if_fail (GTK_IS_COMBO_BOX (combo_box), FALSE);
-  
+
   return gtk_widget_get_focus_on_click (GTK_WIDGET (combo_box));
 }
 
