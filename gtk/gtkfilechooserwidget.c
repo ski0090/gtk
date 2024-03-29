@@ -2563,7 +2563,7 @@ set_icon_cell_renderer_fixed_size (GtkFileChooserWidget *impl)
   gtk_cell_renderer_get_padding (priv->list_pixbuf_renderer, &xpad, &ypad);
   gtk_cell_renderer_set_fixed_size (priv->list_pixbuf_renderer,
                                     xpad * 2 + priv->icon_size,
-                                    ypad * 2 + priv->icon_size);
+                                    45);
 }
 
 static gboolean
